@@ -38,6 +38,7 @@ from .const import (
     CONF_SEARCH_ENABLED,
     CONF_SEARCH_SENTENCES,
     CONF_SEARCH_RESULT_PREFIX,
+    CONF_VERIFY_SSL,
     DEFAULT_SERVICE_NAME,
     DEFAULT_BASE_URL,
     DEFAULT_TIMEOUT,
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_SEARCH_ENABLED,
     DEFAULT_SEARCH_SENTENCES,
     DEFAULT_SEARCH_RESULT_PREFIX,
+    DEFAULT_VERIFY_SSL,
 )
 from .exceptions import ApiClientError, ApiCommError, ApiTimeoutError
 
@@ -60,6 +62,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             ),
         ),
         vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): int,
+        vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
     }
 )
 
@@ -103,6 +106,7 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 api_key=user_input[CONF_API_KEY],
                 timeout=user_input[CONF_TIMEOUT],
                 session=async_create_clientsession(self.hass),
+                verify_ssl=user_input[CONF_VERIFY_SSL],
             )
             response = await self.client.async_get_heartbeat()
             if not response:
@@ -124,7 +128,10 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_BASE_URL: user_input[CONF_BASE_URL],
                     CONF_API_KEY: user_input[CONF_API_KEY],
                 },
-                options={CONF_TIMEOUT: user_input[CONF_TIMEOUT]},
+                options={
+                    CONF_TIMEOUT: user_input[CONF_TIMEOUT],
+                    CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+                },
             )
 
         return self.async_show_form(
@@ -180,6 +187,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
                 api_key=self.config_entry.data[CONF_API_KEY],
                 timeout=self.config_entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
                 session=async_create_clientsession(self.hass),
+                verify_ssl=self.config_entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
             )
             response = await client.async_get_models()
             models = response["data"]

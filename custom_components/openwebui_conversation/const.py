@@ -20,6 +20,7 @@ CONF_LANGUAGE_CODE = "lang_code"
 CONF_SEARCH_ENABLED = "search_enabled"
 CONF_SEARCH_SENTENCES = "search_sentences"
 CONF_SEARCH_RESULT_PREFIX = "search_result_prefix"
+CONF_VERIFY_SSL = "verify_ssl"
 
 DEFAULT_SERVICE_NAME = "OpenWebUI"
 DEFAULT_BASE_URL = "http://openwebui.homeassistant.local"
@@ -30,3 +31,4 @@ DEFAULT_SEARCH_ENABLED = False
 DEFAULT_SEARCH_SENTENCES = """look up {query}
 search [the web | the internet] for {query}"""
 DEFAULT_SEARCH_RESULT_PREFIX = "Based on a search of the internet: "
+DEFAULT_VERIFY_SSL = True

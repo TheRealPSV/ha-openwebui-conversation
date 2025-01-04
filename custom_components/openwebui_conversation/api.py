@@ -19,12 +19,14 @@ class OpenWebUIApiClient:
         base_url: str,
         api_key: str,
         timeout: int,
+        verify_ssl: bool,
         session: aiohttp.ClientSession,
     ) -> None:
         """Sample API Client."""
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self.timeout = timeout
+        self._verify_ssl = verify_ssl
         self._session = session
 
     async def async_get_heartbeat(self) -> bool:
@@ -104,6 +106,7 @@ class OpenWebUIApiClient:
                     url=url,
                     headers=headers,
                     json=data,
+                    verify_ssl=self._verify_ssl,
                 )
 
                 if response.status == 404 and decode_json:

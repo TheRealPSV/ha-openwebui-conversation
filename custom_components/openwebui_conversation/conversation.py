@@ -33,12 +33,14 @@ from .const import (
     CONF_SEARCH_ENABLED,
     CONF_SEARCH_SENTENCES,
     CONF_SEARCH_RESULT_PREFIX,
+    CONF_VERIFY_SSL,
     DEFAULT_TIMEOUT,
     DEFAULT_MODEL,
     DEFAULT_LANGUAGE_CODE,
     DEFAULT_SEARCH_ENABLED,
     DEFAULT_SEARCH_SENTENCES,
     DEFAULT_SEARCH_RESULT_PREFIX,
+    DEFAULT_VERIFY_SSL,
 )
 from .exceptions import ApiCommError, ApiJsonError, ApiTimeoutError
 from .message import Message
@@ -69,6 +71,7 @@ class OpenWebUIAgent(
             api_key=entry.data[CONF_API_KEY],
             timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
             session=async_get_clientsession(hass),
+            verify_ssl=entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
         )
         self.history: dict[str, list[Message]] = {}
         self.search_enabled = entry.options.get(
