@@ -45,6 +45,7 @@ HACS does not "configure" the integration for you, You must add OpenWebUI Conver
   * **Base Url** is the URL for the OpenWebUI service.
   * **API Key** is the API key for your user, which you can find in your OpenWebUI Settings, under Account.
   * **API Timeout** is described below under General Settings.
+  * **Verify SSL** verify SSL certificate for https. Disable verification if you are using self signed certificates.
 * Once you have added the integration, make sure you set your preferred model as described below.
 
 ## Options

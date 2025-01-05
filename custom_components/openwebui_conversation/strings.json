@@ -6,7 +6,8 @@
                     "service_name": "Service Name",
                     "base_url": "Base Url",
                     "api_key": "API Key",
-                    "timeout": "API Timeout"
+                    "timeout": "API Timeout",
+                    "verify_ssl": "Verify SSL"
                 }
             }
         },
