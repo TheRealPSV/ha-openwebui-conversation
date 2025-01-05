@@ -27,8 +27,10 @@ from .const import (
     CONF_API_KEY,
     CONF_TIMEOUT,
     CONF_MODEL,
+    CONF_VERIFY_SSL,
     DEFAULT_TIMEOUT,
     DEFAULT_MODEL,
+    DEFAULT_VERIFY_SSL,
 )
 from .conversation import OpenWebUIAgent
 from .coordinator import OpenWebUIDataUpdateCoordinator
@@ -46,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         api_key=entry.data[CONF_API_KEY],
         timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
         session=async_get_clientsession(hass),
+        verify_ssl=entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
     )
 
     hass.data[DOMAIN][entry.entry_id] = coordinator = OpenWebUIDataUpdateCoordinator(
