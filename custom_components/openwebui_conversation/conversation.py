@@ -7,7 +7,7 @@ from typing import Literal
 from hassil import recognize
 from hassil.intents import Intents
 
-from homeassistant.components import assist_pipeline, conversation
+from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
@@ -58,9 +58,7 @@ async def async_setup_entry(
     return True
 
 
-class OpenWebUIAgent(
-    conversation.ConversationEntity, conversation.AbstractConversationAgent
-):
+class OpenWebUIAgent(conversation.ConversationEntity):
     """OpenWebUI conversation agent."""
 
     _attr_has_entity_name = True
@@ -107,17 +105,12 @@ class OpenWebUIAgent(
     async def async_added_to_hass(self) -> None:
         """When entity is added to Home Assistant."""
         await super().async_added_to_hass()
-        assist_pipeline.async_migrate_engine(
-            self.hass, "conversation", self.entry.entry_id, self.entity_id
-        )
-        conversation.async_set_agent(self.hass, self.entry, self)
         self.entry.async_on_unload(
             self.entry.add_update_listener(self._async_entry_update_listener)
         )
 
     async def async_will_remove_from_hass(self) -> None:
         """When entity will be removed from Home Assistant."""
-        conversation.async_unset_agent(self.hass, self.entry)
         await super().async_will_remove_from_hass()
 
     async def async_process(
@@ -161,10 +154,10 @@ class OpenWebUIAgent(
 
         try:
             response = await self.query(
-                prompt, conversation_history, should_search == True
+                prompt, conversation_history, should_search
             )
         except (ApiCommError, ApiJsonError, ApiTimeoutError) as err:
-            LOGGER.error("Error generating prompt: %s", err)
+            LOGGER.error("Error generating prompt: %s (cause: %s)", err, err.__cause__)
             intent_response = intent.IntentResponse(language=user_input.language)
             intent_response.async_set_error(
                 intent.IntentResponseErrorCode.UNKNOWN,
@@ -206,23 +199,22 @@ class OpenWebUIAgent(
         """Process a sentence."""
         model = self.entry.options.get(CONF_MODEL, DEFAULT_MODEL)
 
-        LOGGER.debug("Prompt for %s: %s", model, prompt)
-
         message_list = [{"role": x.role, "content": x.message} for x in history]
         message_list.append({"role": "user", "content": prompt})
 
-        result = await self.client.async_generate(
-            {
-                "features": {"web_search": search},
-                "model": model,
-                "messages": message_list,
-                "params": {"keep_alive": "-1m"},
-                "stream": False,
-            }
-        )
+        payload = {
+            "model": model,
+            "messages": message_list,
+            "stream": False,
+            "features": {"web_search": search},
+        }
 
-        response: str = result["choices"][0]["message"]["content"]
-        LOGGER.debug("Response %s", response)
+        LOGGER.debug("Prompt for %s: %s", model, prompt)
+        LOGGER.debug("Request payload: %s", payload)
+
+        result = await self.client.async_generate(payload)
+
+        LOGGER.debug("Response keys: %s", list(result.keys()) if isinstance(result, dict) else type(result))
         return result
 
     async def _async_entry_update_listener(

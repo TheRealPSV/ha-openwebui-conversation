@@ -80,10 +80,21 @@ class OpenWebUIApiClient:
                 )
 
                 if response.status == 404 and decode_json:
-                    json = await response.json()
-                    raise ApiJsonError(json["error"])
+                    try:
+                        json = await response.json()
+                        raise ApiJsonError(json.get("error", json))
+                    except Exception:
+                        pass
 
-                response.raise_for_status()
+                if response.status >= 400:
+                    error_text = ""
+                    try:
+                        error_text = await response.text()
+                    except Exception:
+                        error_text = "<could not read body>"
+                    raise ApiCommError(
+                        f"HTTP {response.status} from {url}: {error_text[:500] if error_text else 'no body'}"
+                    )
 
                 if decode_json:
                     return await response.json()
@@ -93,6 +104,6 @@ class OpenWebUIApiClient:
         except asyncio.TimeoutError as e:
             raise ApiTimeoutError("timeout while talking to the server") from e
         except (aiohttp.ClientError, socket.gaierror) as e:
-            raise ApiCommError("unknown error while talking to the server") from e
+            raise ApiCommError(f"communication error: {e}") from e
         except Exception as e:  # pylint: disable=broad-except
-            raise ApiClientError("something really went wrong!") from e
+            raise ApiClientError(f"unexpected error: {e}") from e
