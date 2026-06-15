@@ -119,11 +119,6 @@ class OpenWebUIAgent(conversation.ConversationEntity):
     ) -> conversation.ConversationResult:
         """Process a sentence."""
 
-        LOGGER.error("=== OPENWEBUI AGENT async_process called ===")
-        LOGGER.error("  input conversation_id=%s", user_input.conversation_id)
-        LOGGER.error("  input text=%r", user_input.text)
-        LOGGER.error("  search_enabled=%s, search_sentences_count=%d", self.search_enabled, len(self.search_sentences))
-
         user_message = Message("user", user_input.text)
         prompt = user_message.message
 
@@ -151,17 +146,11 @@ class OpenWebUIAgent(conversation.ConversationEntity):
                     prompt = r.entities["query"].value
                     should_search = True
 
-        LOGGER.error("After search logic: should_search=%s, effective prompt=%r", should_search, prompt)
-
         conversation_result = None
         conversation_id = user_input.conversation_id or ulid.ulid()
         conversation_history: list[Message] = []
 
-        LOGGER.error("About to get chat_log for conversation_id=%s", conversation_id)
-
         with async_get_chat_log(self.hass, user_input) as chat_log:
-            LOGGER.error("Entered chat_log context, chat_log type=%s, has conversation_id attr=%s, has content=%s", type(chat_log), hasattr(chat_log, 'conversation_id'), hasattr(chat_log, 'content'))
-
             conversation_id = chat_log.conversation_id or user_input.conversation_id or ulid.ulid()
 
             # Build previous conversation history as list[Message] from HA's managed chat_log.
@@ -176,27 +165,19 @@ class OpenWebUIAgent(conversation.ConversationEntity):
             if conversation_history and conversation_history[-1].role == "user":
                 conversation_history.pop()
 
-            LOGGER.error(
-                "Chat history for conv_id=%s: built %d previous messages from chat_log (raw content items: %d)",
+            # If chat_log doesn't provide prior turns (common in some setups), fall back to
+            # the legacy self.history which accumulates turns under the conversation_id.
+            if len(conversation_history) == 0 and conversation_id in self.history:
+                conversation_history = list(self.history[conversation_id])
+                LOGGER.debug("Falling back to legacy self.history for conv %s (%d turns)", conversation_id, len(conversation_history))
+
+            LOGGER.debug(
+                "History for %s: %d previous from chat_log (raw %d), legacy %d",
                 conversation_id,
                 len(conversation_history),
                 len(chat_log.content),
-            )
-
-            # Also log the self.history size for comparison (legacy)
-            LOGGER.error(
-                "Legacy self.history size for this conv_id: %d",
                 len(self.history.get(conversation_id, [])),
             )
-
-            # If chat_log didn't provide previous turns (as seen in logs where built=0 even on follow-up),
-            # fall back to our legacy self.history which is accumulating the turns.
-            if len(conversation_history) == 0 and conversation_id in self.history:
-                conversation_history = list(self.history[conversation_id])
-                LOGGER.error(
-                    "Falling back to legacy self.history for history (now %d previous turns)",
-                    len(conversation_history),
-                )
 
             try:
                 response = await self.query(
@@ -263,7 +244,7 @@ class OpenWebUIAgent(conversation.ConversationEntity):
         message_list = [{"role": x.role, "content": x.message} for x in history]
         message_list.append({"role": "user", "content": prompt})
 
-        LOGGER.error("Sending %d messages to OpenWebUI (prev history + current)", len(message_list))
+        LOGGER.debug("Sending %d messages to OpenWebUI (model=%s)", len(message_list), model)
 
         payload = {
             "model": model,
@@ -271,6 +252,9 @@ class OpenWebUIAgent(conversation.ConversationEntity):
             "stream": False,
             "features": {"web_search": search},
         }
+
+        LOGGER.debug("Prompt for %s: %s", model, prompt)
+        LOGGER.debug("Request payload: %s", payload)
 
         result = await self.client.async_generate(payload)
 
