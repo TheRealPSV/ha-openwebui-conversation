@@ -8,6 +8,7 @@ from hassil import recognize
 from hassil.intents import Intents
 
 from homeassistant.components import conversation
+from homeassistant.components.conversation import async_get_chat_log
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
@@ -118,12 +119,10 @@ class OpenWebUIAgent(conversation.ConversationEntity):
     ) -> conversation.ConversationResult:
         """Process a sentence."""
 
-        if user_input.conversation_id in self.history:
-            conversation_id = user_input.conversation_id
-            conversation_history = self.history[conversation_id]
-        else:
-            conversation_id = ulid.ulid()
-            conversation_history = []
+        LOGGER.error("=== OPENWEBUI AGENT async_process called ===")
+        LOGGER.error("  input conversation_id=%s", user_input.conversation_id)
+        LOGGER.error("  input text=%r", user_input.text)
+        LOGGER.error("  search_enabled=%s, search_sentences_count=%d", self.search_enabled, len(self.search_sentences))
 
         user_message = Message("user", user_input.text)
         prompt = user_message.message
@@ -152,48 +151,110 @@ class OpenWebUIAgent(conversation.ConversationEntity):
                     prompt = r.entities["query"].value
                     should_search = True
 
-        try:
-            response = await self.query(
-                prompt, conversation_history, should_search
-            )
-        except (ApiCommError, ApiJsonError, ApiTimeoutError) as err:
-            LOGGER.error("Error generating prompt: %s (cause: %s)", err, err.__cause__)
-            intent_response = intent.IntentResponse(language=user_input.language)
-            intent_response.async_set_error(
-                intent.IntentResponseErrorCode.UNKNOWN,
-                f"Something went wrong, {err}",
-            )
-            return conversation.ConversationResult(
-                response=intent_response, conversation_id=conversation_id
-            )
-        except HomeAssistantError as err:
-            LOGGER.error("Something went wrong: %s", err)
-            intent_response = intent.IntentResponse(language=user_input.language)
-            intent_response.async_set_error(
-                intent.IntentResponseErrorCode.UNKNOWN,
-                "Something went wrong, please check the logs for more information.",
-            )
-            return conversation.ConversationResult(
-                response=intent_response, conversation_id=conversation_id
+        LOGGER.error("After search logic: should_search=%s, effective prompt=%r", should_search, prompt)
+
+        conversation_result = None
+        conversation_id = user_input.conversation_id or ulid.ulid()
+        conversation_history: list[Message] = []
+
+        LOGGER.error("About to get chat_log for conversation_id=%s", conversation_id)
+
+        with async_get_chat_log(self.hass, user_input) as chat_log:
+            LOGGER.error("Entered chat_log context, chat_log type=%s, has conversation_id attr=%s, has content=%s", type(chat_log), hasattr(chat_log, 'conversation_id'), hasattr(chat_log, 'content'))
+
+            conversation_id = chat_log.conversation_id or user_input.conversation_id or ulid.ulid()
+
+            # Build previous conversation history as list[Message] from HA's managed chat_log.
+            # This ensures proper retention for ConversationEntity threads (e.g. Assistant UI).
+            for content in chat_log.content:
+                if hasattr(content, "role") and hasattr(content, "content") and content.role in ("user", "assistant"):
+                    conversation_history.append(Message(content.role, content.content))
+
+            # chat_log.content usually ends with the current user message (added by the pipeline).
+            # We will append the (possibly search-rewritten) current user prompt inside query(),
+            # so drop the last user entry to avoid sending duplicate current user turn.
+            if conversation_history and conversation_history[-1].role == "user":
+                conversation_history.pop()
+
+            LOGGER.error(
+                "Chat history for conv_id=%s: built %d previous messages from chat_log (raw content items: %d)",
+                conversation_id,
+                len(conversation_history),
+                len(chat_log.content),
             )
 
-        response_data = response["choices"][0]["message"]["content"]
-        if self.strip_markdown:
-            response_data = self.markdown_parser.render(response_data)
-        if should_search:
-            response_data = f"{self.search_result_prefix} {response_data}"
-        response_message = Message("assistant", response_data)
+            # Also log the self.history size for comparison (legacy)
+            LOGGER.error(
+                "Legacy self.history size for this conv_id: %d",
+                len(self.history.get(conversation_id, [])),
+            )
 
-        conversation_history.append(user_message)
-        conversation_history.append(response_message)
-        self.history[conversation_id] = conversation_history
+            # If chat_log didn't provide previous turns (as seen in logs where built=0 even on follow-up),
+            # fall back to our legacy self.history which is accumulating the turns.
+            if len(conversation_history) == 0 and conversation_id in self.history:
+                conversation_history = list(self.history[conversation_id])
+                LOGGER.error(
+                    "Falling back to legacy self.history for history (now %d previous turns)",
+                    len(conversation_history),
+                )
 
-        intent_response = intent.IntentResponse(language=user_input.language)
+            try:
+                response = await self.query(
+                    prompt, conversation_history, should_search
+                )
+            except (ApiCommError, ApiJsonError, ApiTimeoutError) as err:
+                LOGGER.error("Error generating prompt: %s (cause: %s)", err, err.__cause__)
+                intent_response = intent.IntentResponse(language=user_input.language)
+                intent_response.async_set_error(
+                    intent.IntentResponseErrorCode.UNKNOWN,
+                    f"Something went wrong, {err}",
+                )
+                conversation_result = conversation.ConversationResult(
+                    response=intent_response, conversation_id=conversation_id
+                )
+            except HomeAssistantError as err:
+                LOGGER.error("Something went wrong: %s", err)
+                intent_response = intent.IntentResponse(language=user_input.language)
+                intent_response.async_set_error(
+                    intent.IntentResponseErrorCode.UNKNOWN,
+                    "Something went wrong, please check the logs for more information.",
+                )
+                conversation_result = conversation.ConversationResult(
+                    response=intent_response, conversation_id=conversation_id
+                )
+            else:
+                response_data = response["choices"][0]["message"]["content"]
+                if self.strip_markdown:
+                    response_data = self.markdown_parser.render(response_data)
+                if should_search:
+                    response_data = f"{self.search_result_prefix} {response_data}"
+                response_message = Message("assistant", response_data)
 
-        intent_response.async_set_speech(response_data)
-        return conversation.ConversationResult(
-            response=intent_response, conversation_id=conversation_id
-        )
+                conversation_history.append(user_message)
+                conversation_history.append(response_message)
+                self.history[conversation_id] = conversation_history
+
+                # Sync the turn back to HA's chat_log so the thread state is correct for future calls
+                # and the Assistant UI.
+                try:
+                    from homeassistant.components.conversation.chat_log import AssistantContent
+                    chat_log.async_add_assistant_content(
+                        AssistantContent(
+                            agent_id=self.entity_id,
+                            content=response_data,
+                        )
+                    )
+                except Exception as err:
+                    LOGGER.error("Failed to add assistant turn to chat_log (history may not persist): %s", err)
+                    # Still continue; self.history is updated for this instance's lifetime.
+
+                intent_response = intent.IntentResponse(language=user_input.language)
+                intent_response.async_set_speech(response_data)
+                conversation_result = conversation.ConversationResult(
+                    response=intent_response, conversation_id=conversation_id
+                )
+
+        return conversation_result
 
     async def query(self, prompt: str, history: list[Message], search: bool) -> any:
         """Process a sentence."""
@@ -202,6 +263,8 @@ class OpenWebUIAgent(conversation.ConversationEntity):
         message_list = [{"role": x.role, "content": x.message} for x in history]
         message_list.append({"role": "user", "content": prompt})
 
+        LOGGER.error("Sending %d messages to OpenWebUI (prev history + current)", len(message_list))
+
         payload = {
             "model": model,
             "messages": message_list,
@@ -209,12 +272,8 @@ class OpenWebUIAgent(conversation.ConversationEntity):
             "features": {"web_search": search},
         }
 
-        LOGGER.debug("Prompt for %s: %s", model, prompt)
-        LOGGER.debug("Request payload: %s", payload)
-
         result = await self.client.async_generate(payload)
 
-        LOGGER.debug("Response keys: %s", list(result.keys()) if isinstance(result, dict) else type(result))
         return result
 
     async def _async_entry_update_listener(
