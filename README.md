@@ -8,7 +8,7 @@
 
 The OpenWebUI integration adds a conversation agent powered by [OpenWebUI][openwebui] in Home Assistant.
 
-This conversation agent is unable to control your house. The OpenWebUI conversation agent can be used in automations, but not as a [sentence trigger][sentence-trigger]. If you'd like house control and sentence triggers, using this in conjunction with the [Fallback Conversation Agent][fallback-conversation-agent] is recommended: Set the standard Assist engine as your main Assistant, and this integration as your Fallback.
+This conversation agent is unable to control your house. The OpenWebUI conversation agent can be used in automations, but not as a [sentence trigger][sentence-trigger]. If you'd like house control and sentence triggers, Home Assistant's "Prefer handling commands locally" option is recommended: Set the standard Assist engine as your main Assistant, and in the Assistant configuration, under the Conversation Agent, just make sure the "Prefer handling commands locally" option is enabled. This will use Home Assistant triggers by default, and fall back to this integration if a trigger isn't matched.
 
 This conversation agent can search the internet for you, using sentence triggers you can configure, if Web Search is set up in OpenWebUI. For more details, see the relevant Options section below.
 

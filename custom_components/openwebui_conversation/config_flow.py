@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import types
 from types import MappingProxyType
 from typing import Any
@@ -154,8 +155,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
-        self.options = dict(config_entry.options)
+        self.options = deepcopy(dict(config_entry.options))
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -171,7 +171,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
             self.options.update(user_input)
             return self.async_create_entry(title="", data=self.options)
 
-        schema = openwebui_schema_general_config(self.config_entry.options)
+        schema = openwebui_schema_general_config(self.options)
         return self.async_show_form(
             step_id="general_config", data_schema=vol.Schema(schema)
         )
@@ -188,9 +188,9 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
             client = OpenWebUIApiClient(
                 base_url=cv.url_no_path(self.config_entry.data[CONF_BASE_URL]),
                 api_key=self.config_entry.data[CONF_API_KEY],
-                timeout=self.config_entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                timeout=self.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
                 session=async_create_clientsession(self.hass),
-                verify_ssl=self.config_entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                verify_ssl=self.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
             )
             response = await client.async_get_models()
             models = response["data"]
@@ -199,7 +199,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
             models = []
 
         schema = openwebui_schema_model_config(
-            self.config_entry.options, [model["id"] for model in models]
+            self.options, [model["id"] for model in models]
         )
         return self.async_show_form(
             step_id="model_config", data_schema=vol.Schema(schema)
@@ -213,7 +213,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
             self.options.update(user_input)
             return self.async_create_entry(title="", data=self.options)
 
-        schema = openwebui_schema_search_config(self.config_entry.options)
+        schema = openwebui_schema_search_config(self.options)
         return self.async_show_form(
             step_id="search_config", data_schema=vol.Schema(schema)
         )
