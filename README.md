@@ -96,4 +96,4 @@ This integration is based on the [hass-ollama-conversation][hass-ollama-conversa
 [hass-ollama-conversation]: https://github.com/ej52/hass-ollama-conversation/
 [fallback-conversation-agent]: https://github.com/m50/ha-fallback-conversation
 [lang-codes]: https://developers.home-assistant.io/docs/voice/intent-recognition/supported-languages/
-[openwebui-search]: https://docs.openwebui.com/features/web_search
+[openwebui-search]: https://docs.openwebui.com/category/web-search
