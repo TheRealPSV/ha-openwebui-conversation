@@ -12,7 +12,7 @@ This conversation agent is unable to control your house. The OpenWebUI conversat
 
 This conversation agent can search the internet for you, using sentence triggers you can configure, if Web Search is set up in OpenWebUI. For more details, see the relevant Options section below.
 
-You can also take advantage of OpenWebUI's ability to "clone" models; once you create a clone model in OpenWebUI, it will automatically be available to select in the integration's options.
+You should also take advantage of OpenWebUI's ability to "clone" models; once you create a clone model in OpenWebUI, it will automatically be available to select in the integration's options. Using this integration with base models is not recommended and can cause issues (see the issue [here](https://github.com/TheRealPSV/ha-openwebui-conversation/issues/40)).
 
 ## Installation
 

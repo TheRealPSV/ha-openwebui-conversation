@@ -16,5 +16,5 @@
     "markdown-it-py==4.2.0",
     "mdit-plain==1.0.1"
   ],
-  "version": "1.3.0"
+  "version": "1.3.2"
 }
