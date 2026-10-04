@@ -15,6 +15,8 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
     BooleanSelectorConfig,
+    ObjectSelector,
+    ObjectSelectorConfig,
     TemplateSelector,
     TemplateSelectorConfig,
     TextSelector,
@@ -41,6 +43,7 @@ from .const import (
     CONF_SEARCH_RESULT_PREFIX,
     CONF_STRIP_MARKDOWN,
     CONF_VERIFY_SSL,
+    CONF_HEADERS,
     DEFAULT_SERVICE_NAME,
     DEFAULT_BASE_URL,
     DEFAULT_TIMEOUT,
@@ -55,19 +58,77 @@ from .const import (
 from .exceptions import ApiClientError, ApiCommError, ApiTimeoutError
 
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_SERVICE_NAME, default=DEFAULT_SERVICE_NAME): str,
-        vol.Required(CONF_BASE_URL, default=DEFAULT_BASE_URL): str,
-        vol.Required(CONF_API_KEY, default=""): TextSelector(
-            TextSelectorConfig(
-                type=TextSelectorType.PASSWORD,
+def _normalize_headers(headers: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    """Normalize header entries, dropping rows without a name."""
+    if not headers:
+        return []
+    normalized: list[dict[str, str]] = []
+    for header in headers:
+        if not isinstance(header, dict):
+            continue
+        name = str(header.get("name", "") or "").strip()
+        if not name:
+            continue
+        normalized.append({"name": name, "value": str(header.get("value", "") or "")})
+    return normalized
+
+
+def openwebui_user_data_schema(
+    defaults: MappingProxyType[str, Any] | None = None,
+) -> vol.Schema:
+    """Return the user/reconfigure data schema."""
+    if defaults is None:
+        defaults = types.MappingProxyType({})
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_SERVICE_NAME,
+                default=defaults.get(CONF_SERVICE_NAME, DEFAULT_SERVICE_NAME),
+            ): str,
+            vol.Required(
+                CONF_BASE_URL,
+                default=defaults.get(CONF_BASE_URL, DEFAULT_BASE_URL),
+            ): str,
+            vol.Required(
+                CONF_API_KEY,
+                default=defaults.get(CONF_API_KEY, ""),
+            ): TextSelector(
+                TextSelectorConfig(
+                    type=TextSelectorType.PASSWORD,
+                ),
             ),
-        ),
-        vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): int,
-        vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
-    }
-)
+            vol.Required(
+                CONF_TIMEOUT,
+                default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+            ): int,
+            vol.Required(
+                CONF_VERIFY_SSL,
+                default=defaults.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+            ): bool,
+            vol.Optional(
+                CONF_HEADERS,
+                default=defaults.get(CONF_HEADERS, []),
+            ): ObjectSelector(
+                ObjectSelectorConfig(
+                    multiple=True,
+                    label_field="name",
+                    fields={
+                        "name": {
+                            "label": "Header Name",
+                            "selector": TextSelector(TextSelectorConfig()),
+                        },
+                        "value": {
+                            "label": "Header Value",
+                            "selector": TextSelector(
+                                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                            ),
+                        },
+                    },
+                )
+            ),
+        }
+    )
+
 
 DEFAULT_OPTIONS = types.MappingProxyType(
     {
@@ -86,16 +147,46 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    async def _test_connection(self, user_input: dict[str, Any]) -> None:
+        """Validate the connection and heartbeat with the supplied values."""
+        client = OpenWebUIApiClient(
+            base_url=cv.url_no_path(user_input[CONF_BASE_URL]),
+            api_key=user_input[CONF_API_KEY],
+            timeout=user_input[CONF_TIMEOUT],
+            session=async_create_clientsession(self.hass),
+            verify_ssl=user_input[CONF_VERIFY_SSL],
+            extra_headers=_normalize_headers(user_input.get(CONF_HEADERS)),
+        )
+        response = await client.async_get_heartbeat()
+        if not response:
+            raise vol.Invalid("Invalid OpenWebUI server")
+
+    def _build_data_and_options(
+        self, user_input: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Build the data and options dicts from user input."""
+        data = {
+            CONF_SERVICE_NAME: user_input[CONF_SERVICE_NAME],
+            CONF_BASE_URL: user_input[CONF_BASE_URL],
+            CONF_API_KEY: user_input[CONF_API_KEY],
+            CONF_HEADERS: _normalize_headers(user_input.get(CONF_HEADERS)),
+        }
+        options = {
+            CONF_TIMEOUT: user_input[CONF_TIMEOUT],
+            CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
+        }
+        return data, options
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
         if user_input is None:
             return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
+                step_id="user", data_schema=openwebui_user_data_schema()
             )
 
-        # Search for duplicates with the same CONF_BASE_URL value.
+        # Search for duplicates with the same CONF_SERVICE_NAME value.
         for existing_entry in self._async_current_entries(include_ignore=False):
             if (
                 existing_entry.data.get(CONF_SERVICE_NAME)
@@ -105,16 +196,7 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors = {}
         try:
-            self.client = OpenWebUIApiClient(
-                base_url=cv.url_no_path(user_input[CONF_BASE_URL]),
-                api_key=user_input[CONF_API_KEY],
-                timeout=user_input[CONF_TIMEOUT],
-                session=async_create_clientsession(self.hass),
-                verify_ssl=user_input[CONF_VERIFY_SSL],
-            )
-            response = await self.client.async_get_heartbeat()
-            if not response:
-                raise vol.Invalid("Invalid OpenWebUI server")
+            await self._test_connection(user_input)
         except vol.Invalid:
             errors["base"] = "invalid_url"
         except ApiTimeoutError:
@@ -125,21 +207,67 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             LOGGER.exception("Unexpected exception: %s", exception)
             errors["base"] = "unknown"
         else:
+            data, options = self._build_data_and_options(user_input)
             return self.async_create_entry(
                 title=f"OpenWebUI - {user_input[CONF_SERVICE_NAME]}",
-                data={
-                    CONF_SERVICE_NAME: user_input[CONF_SERVICE_NAME],
-                    CONF_BASE_URL: user_input[CONF_BASE_URL],
-                    CONF_API_KEY: user_input[CONF_API_KEY],
-                },
-                options={
-                    CONF_TIMEOUT: user_input[CONF_TIMEOUT],
-                    CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
-                },
+                data=data,
+                options=options,
             )
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+            step_id="user", data_schema=openwebui_user_data_schema(), errors=errors
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle reconfiguration of an existing entry."""
+        entry = self._get_reconfigure_entry()
+        defaults = types.MappingProxyType(
+            {
+                CONF_SERVICE_NAME: entry.data.get(
+                    CONF_SERVICE_NAME, DEFAULT_SERVICE_NAME
+                ),
+                CONF_BASE_URL: entry.data.get(CONF_BASE_URL, DEFAULT_BASE_URL),
+                CONF_API_KEY: entry.data.get(CONF_API_KEY, ""),
+                CONF_TIMEOUT: entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                CONF_VERIFY_SSL: entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                CONF_HEADERS: entry.data.get(CONF_HEADERS, []),
+            }
+        )
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=openwebui_user_data_schema(defaults),
+            )
+
+        errors = {}
+        try:
+            await self._test_connection(user_input)
+        except vol.Invalid:
+            errors["base"] = "invalid_url"
+        except ApiTimeoutError:
+            errors["base"] = "timeout_connect"
+        except ApiCommError:
+            errors["base"] = "cannot_connect"
+        except ApiClientError as exception:
+            LOGGER.exception("Unexpected exception: %s", exception)
+            errors["base"] = "unknown"
+        else:
+            data, options = self._build_data_and_options(user_input)
+            return self.async_update_reload_and_abort(
+                entry,
+                title=f"OpenWebUI - {user_input[CONF_SERVICE_NAME]}",
+                data=data,
+                options=options,
+                reason="reconfigure_successful",
+            )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=openwebui_user_data_schema(defaults),
+            errors=errors,
         )
 
     @staticmethod
@@ -191,6 +319,7 @@ class OpenWebUIOptionsFlow(config_entries.OptionsFlow):
                 timeout=self.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
                 session=async_create_clientsession(self.hass),
                 verify_ssl=self.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                extra_headers=self.config_entry.data.get(CONF_HEADERS),
             )
             response = await client.async_get_models()
             models = response["data"]

@@ -11,6 +11,21 @@ import async_timeout
 from .exceptions import ApiClientError, ApiCommError, ApiJsonError, ApiTimeoutError
 
 
+def _headers_to_dict(headers: list[dict[str, str]] | None) -> dict[str, str]:
+    """Convert a list of name/value header dicts to a dict, dropping empty names."""
+    result: dict[str, str] = {}
+    if not headers:
+        return result
+    for header in headers:
+        if not isinstance(header, dict):
+            continue
+        name = str(header.get("name", "") or "").strip()
+        if not name:
+            continue
+        result[name] = str(header.get("value", "") or "")
+    return result
+
+
 class OpenWebUIApiClient:
     """OpenWebUI API Client."""
 
@@ -21,6 +36,7 @@ class OpenWebUIApiClient:
         timeout: int,
         verify_ssl: bool,
         session: aiohttp.ClientSession,
+        extra_headers: list[dict[str, str]] | None = None,
     ) -> None:
         """Sample API Client."""
         self._base_url = base_url.rstrip("/")
@@ -28,6 +44,7 @@ class OpenWebUIApiClient:
         self.timeout = timeout
         self._verify_ssl = verify_ssl
         self._session = session
+        self._extra_headers = _headers_to_dict(extra_headers)
 
     async def async_get_heartbeat(self) -> bool:
         """Get heartbeat from the API."""
@@ -69,12 +86,16 @@ class OpenWebUIApiClient:
         decode_json: bool = True,
     ) -> any:
         """Get information from the API."""
+        request_headers = dict(self._extra_headers)
+        if headers:
+            request_headers.update(headers)
+
         try:
             async with async_timeout.timeout(self.timeout):
                 response = await self._session.request(
                     method=method,
                     url=url,
-                    headers=headers,
+                    headers=request_headers,
                     json=data,
                     verify_ssl=self._verify_ssl,
                 )
