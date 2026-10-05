@@ -199,9 +199,11 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._test_connection(user_input)
         except vol.Invalid:
             errors["base"] = "invalid_url"
-        except ApiTimeoutError:
+        except ApiTimeoutError as exception:
+            LOGGER.warning("Timeout connecting to OpenWebUI: %s", exception)
             errors["base"] = "timeout_connect"
-        except ApiCommError:
+        except ApiCommError as exception:
+            LOGGER.warning("Could not connect to OpenWebUI: %s", exception)
             errors["base"] = "cannot_connect"
         except ApiClientError as exception:
             LOGGER.exception("Unexpected exception: %s", exception)
@@ -247,9 +249,11 @@ class OpenWebUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self._test_connection(user_input)
         except vol.Invalid:
             errors["base"] = "invalid_url"
-        except ApiTimeoutError:
+        except ApiTimeoutError as exception:
+            LOGGER.warning("Timeout connecting to OpenWebUI: %s", exception)
             errors["base"] = "timeout_connect"
-        except ApiCommError:
+        except ApiCommError as exception:
+            LOGGER.warning("Could not connect to OpenWebUI: %s", exception)
             errors["base"] = "cannot_connect"
         except ApiClientError as exception:
             LOGGER.exception("Unexpected exception: %s", exception)
