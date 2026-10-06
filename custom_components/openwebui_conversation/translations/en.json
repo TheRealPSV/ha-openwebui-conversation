@@ -7,7 +7,8 @@
                     "base_url": "Base Url",
                     "api_key": "API Key",
                     "timeout": "API Timeout",
-                    "verify_ssl": "Verify SSL"
+                    "verify_ssl": "Verify SSL",
+                    "headers": "Additional Headers"
                 }
             }
         },
@@ -18,7 +19,8 @@
             "unknown": "Unexpected error, check logs"
         },
         "abort": {
-            "already_configured": "Service is already configured with given name"
+            "already_configured": "Service is already configured with given name",
+            "reconfigure_successful": "Successfully reconfigured"
         }
     },
     "options": {
