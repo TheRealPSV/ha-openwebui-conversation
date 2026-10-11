@@ -1,5 +1,4 @@
-"""Custom integration to integrate openwebui_conversation with Home Assistant.
-"""
+"""Custom integration to integrate openwebui_conversation with Home Assistant."""
 
 from __future__ import annotations
 
@@ -21,7 +20,7 @@ from .const import (
     DEFAULT_VERIFY_SSL,
 )
 from .coordinator import OpenWebUIDataUpdateCoordinator
-from .exceptions import ApiClientError, ApiCommError, ApiJsonError, ApiTimeoutError
+from .exceptions import ApiClientError
 
 PLATFORMS = (Platform.CONVERSATION,)
 
