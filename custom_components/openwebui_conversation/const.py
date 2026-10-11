@@ -22,6 +22,7 @@ CONF_SEARCH_SENTENCES = "search_sentences"
 CONF_SEARCH_RESULT_PREFIX = "search_result_prefix"
 CONF_STRIP_MARKDOWN = "strip_markdown"
 CONF_VERIFY_SSL = "verify_ssl"
+CONF_HEADERS = "headers"
 
 DEFAULT_SERVICE_NAME = "OpenWebUI"
 DEFAULT_BASE_URL = "http://openwebui.homeassistant.local"

@@ -46,7 +46,23 @@ HACS does not "configure" the integration for you, You must add OpenWebUI Conver
   * **API Key** is the API key for your user, which you can find in your OpenWebUI Settings, under Account.
   * **API Timeout** is described below under General Settings.
   * **Verify SSL** is if requests should verify SSL certificates for HTTPS. Disable verification if you are using self signed certificates.
+  * **Additional Headers** lets you add arbitrary HTTP header name/value pairs that are sent with every request. This is useful when Open WebUI sits behind an identity-aware proxy (see [Additional Headers](#additional-headers) below). Optional.
 * Once you have added the integration, make sure you set your preferred model as described below.
+
+## Additional Headers
+
+If your Open WebUI instance is reachable only through an authentication proxy (such as Cloudflare Access), the proxy may require its own credentials to be sent as HTTP headers with every request — for example, a Cloudflare Access service token sent as `CF-Access-Client-Id` and `CF-Access-Client-Secret`.
+
+Add these as header name/value pairs in the **Additional Headers** field during setup:
+
+| Header Name            | Header Value                                   |
+| ---------------------- | ---------------------------------------------- |
+| `CF-Access-Client-Id`  | your service token client ID                   |
+| `CF-Access-Client-Secret` | your service token client secret            |
+
+The headers are generic key/value pairs, so they also work for any other authentication proxy that relies on request headers. Header values are stored in plaintext alongside the API key (Home Assistant custom integrations do not have an encrypted secret store).
+
+You can edit the headers later by selecting **Reconfigure** on the integration.
 
 ## Options
 Options for OpenWebUI Conversation can be set via the user interface, by taking the following steps:

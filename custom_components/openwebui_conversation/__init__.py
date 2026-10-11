@@ -1,5 +1,4 @@
-"""Custom integration to integrate openwebui_conversation with Home Assistant.
-"""
+"""Custom integration to integrate openwebui_conversation with Home Assistant."""
 
 from __future__ import annotations
 
@@ -16,11 +15,12 @@ from .const import (
     CONF_API_KEY,
     CONF_TIMEOUT,
     CONF_VERIFY_SSL,
+    CONF_HEADERS,
     DEFAULT_TIMEOUT,
     DEFAULT_VERIFY_SSL,
 )
 from .coordinator import OpenWebUIDataUpdateCoordinator
-from .exceptions import ApiClientError, ApiCommError, ApiJsonError, ApiTimeoutError
+from .exceptions import ApiClientError
 
 PLATFORMS = (Platform.CONVERSATION,)
 
@@ -34,6 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
         session=async_get_clientsession(hass),
         verify_ssl=entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+        extra_headers=entry.data.get(CONF_HEADERS),
     )
 
     coordinator = OpenWebUIDataUpdateCoordinator(hass, client)

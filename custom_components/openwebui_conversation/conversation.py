@@ -37,6 +37,7 @@ from .const import (
     CONF_SEARCH_RESULT_PREFIX,
     CONF_STRIP_MARKDOWN,
     CONF_VERIFY_SSL,
+    CONF_HEADERS,
     DEFAULT_TIMEOUT,
     DEFAULT_MODEL,
     DEFAULT_LANGUAGE_CODE,
@@ -75,6 +76,7 @@ class OpenWebUIAgent(conversation.ConversationEntity):
             timeout=entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
             session=async_get_clientsession(hass),
             verify_ssl=entry.options.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+            extra_headers=entry.data.get(CONF_HEADERS),
         )
         self.history: dict[str, list[Message]] = {}
         self.search_enabled = entry.options.get(
