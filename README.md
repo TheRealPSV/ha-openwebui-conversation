@@ -14,6 +14,18 @@ This conversation agent can search the internet for you, using sentence triggers
 
 You should also take advantage of OpenWebUI's ability to "clone" models; once you create a clone model in OpenWebUI, it will automatically be available to select in the integration's options. Using this integration with base models is not recommended and can cause issues (see the issue [here](https://github.com/TheRealPSV/ha-openwebui-conversation/issues/40)).
 
+## AI Task
+
+This integration also creates an **AI Task** entity that can generate free text or structured data through OpenWebUI. Home Assistant uses that entity for [AI suggestions][ai-suggestions] (for example, suggesting names and descriptions when saving automations) and for the [`ai_task.generate_data`][ai-task-generate-data] action in automations, scripts, and templates.
+
+After setup:
+
+1. Go to **Settings → System → AI** (or **General → AI tasks** on older versions).
+2. Set the preferred **Generate data** entity to this integration's AI Task entity.
+3. Optionally enable AI suggestions in the UI.
+
+The AI Task entity uses the same OpenWebUI model configured in the integration options. Image attachments are supported for vision-capable models. Image generation and Decisions / evaluate entities are not supported, because OpenWebUI does not expose those APIs.
+
 ## Installation
 
 To install the **OpenWebUI Conversation** integration to your Home Assistant instance, use this My button:
@@ -113,3 +125,5 @@ This integration is based on the [hass-ollama-conversation][hass-ollama-conversa
 [fallback-conversation-agent]: https://github.com/m50/ha-fallback-conversation
 [lang-codes]: https://developers.home-assistant.io/docs/voice/intent-recognition/supported-languages/
 [openwebui-search]: https://docs.openwebui.com/category/web-search
+[ai-suggestions]: https://www.home-assistant.io/blog/2025/09/11/ai-in-home-assistant/
+[ai-task-generate-data]: https://www.home-assistant.io/actions/ai_task.generate_data/

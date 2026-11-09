@@ -22,7 +22,10 @@ from .const import (
 from .coordinator import OpenWebUIDataUpdateCoordinator
 from .exceptions import ApiClientError
 
-PLATFORMS = (Platform.CONVERSATION,)
+PLATFORMS = (
+    Platform.CONVERSATION,
+    getattr(Platform, "AI_TASK", "ai_task"),
+)
 
 
 # https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
