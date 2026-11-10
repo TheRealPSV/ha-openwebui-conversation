@@ -11,7 +11,7 @@ from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import llm
+from homeassistant.helpers import device_registry as dr, llm
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.json import json_loads
 
@@ -155,6 +155,14 @@ class OpenWebUITaskEntity(ai_task.AITaskEntity):
         self.entry = entry
         self.coordinator = coordinator
         self._attr_unique_id = f"{entry.entry_id}_ai_task"
+        # Tie the entity to the config entry title so multiple OpenWebUI
+        # setups are distinguishable (e.g. "Kitchen OpenWebUI AI Task").
+        self._attr_device_info = dr.DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="OpenWebUI",
+            entry_type=dr.DeviceEntryType.SERVICE,
+        )
 
     async def _async_generate_data(
         self,
