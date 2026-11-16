@@ -3,5 +3,5 @@ homeassistant==2026.6.0
 hassil>=3.12.1
 pip>=26.3
 ruff==0.17.4
-markdown-it-py==4.2.0
+markdown-it-py==4.3.0
 mdit-plain==1.0.1
